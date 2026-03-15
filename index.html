@@ -7,6 +7,7 @@
     <title id="browserTitle">马笛资产看板v1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
     <style>
         body {
             background-color: #0f172a;
@@ -714,17 +715,18 @@
             event.target.value = '';
         }
 
-        // 生成秘钥 (将 JSON 转为 Base64 防乱码文本)
+        // 🧬 升级版：生成高压缩率秘钥
         function generateSyncCode() {
             const dataStr = localStorage.getItem(STORAGE_KEY) || '{}';
-            // 使用 encodeURIComponent 配合 btoa 处理中文字符
-            const base64Code = btoa(encodeURIComponent(dataStr));
-            const textArea = document.getElementById('syncCodeArea');
-            textArea.value = base64Code;
             
-            // 自动选中并复制到剪贴板
+            // 核心魔法：使用 LZString 压缩并转为安全的 Base64
+            const compressedCode = LZString.compressToBase64(dataStr);
+            
+            const textArea = document.getElementById('syncCodeArea');
+            textArea.value = compressedCode;
+            
             textArea.select();
-            navigator.clipboard.writeText(base64Code).then(() => {
+            navigator.clipboard.writeText(compressedCode).then(() => {
                 const toast = document.getElementById('copyToast');
                 toast.classList.remove('hidden');
                 setTimeout(() => toast.classList.add('hidden'), 3000);
@@ -732,8 +734,7 @@
                 alert('复制失败，请手动长按全选复制！');
             });
         }
-
-        // 导入秘钥
+        // 🧬 极致瘦身版：纯 LZ-String 解压导入
         function importSyncCode() {
             const code = document.getElementById('syncCodeArea').value.trim();
             if (!code) { alert('请先粘贴秘钥！'); return; }
@@ -741,8 +742,12 @@
             if (!confirm('🚨 警告：导入秘钥将覆盖当前设备上的所有数据，确认导入吗？')) return;
 
             try {
-                // 解码 Base64
-                const jsonStr = decodeURIComponent(atob(code));
+                // 直接使用 LZString 解压，不留任何后路
+                const jsonStr = LZString.decompressFromBase64(code);
+                
+                // 如果解不开（比如贴了旧版秘钥），直接抛出错误进入 catch
+                if (!jsonStr) throw new Error("解压失败，非兼容的秘钥格式");
+
                 const importedData = JSON.parse(jsonStr);
                 
                 if (typeof importedData === 'object' && importedData !== null && importedData.accounts) {
@@ -754,7 +759,7 @@
                     throw new Error("数据格式不正确");
                 }
             } catch (err) {
-                alert('❌ 秘钥无效或已损坏！请确保复制了完整的代码。');
+                alert('❌ 秘钥无效或已损坏！请确保复制了最新的短压缩秘钥。');
             }
         }
 
