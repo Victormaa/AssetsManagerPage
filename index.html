@@ -162,9 +162,12 @@
     <div class="absolute top-4 right-4 md:top-8 md:right-8 flex flex-wrap gap-3 z-10 justify-end">
         <button onclick="openAggregateModal()"
             class="btn-highlight px-4 py-2 rounded-lg text-sm font-bold tracking-wider">📈 小小总结</button>
-        <button onclick="exportData()" class="btn-cyber px-4 py-2 rounded-lg text-sm font-medium">💾 导出</button>
+        <button
+            onclick="document.getElementById('syncModal').classList.remove('hidden'); document.getElementById('syncCodeArea').value='';"
+            class="btn-cyber px-4 py-2 rounded-lg text-sm font-medium">🧬 秘钥同步</button>
+        <button onclick="exportData()" class="btn-cyber px-4 py-2 rounded-lg text-sm font-medium hidden md:block">💾 导出</button>
         <button onclick="document.getElementById('fileInput').click()"
-            class="btn-cyber px-4 py-2 rounded-lg text-sm font-medium">📂 导入</button>
+            class="btn-cyber px-4 py-2 rounded-lg text-sm font-medium hidden md:block">📂 导入</button>
         <input type="file" id="fileInput" class="hidden" accept=".json" onchange="importData(event)">
     </div>
 
@@ -651,8 +654,81 @@
             event.target.value = '';
         }
 
+        // 生成秘钥 (将 JSON 转为 Base64 防乱码文本)
+        function generateSyncCode() {
+            const dataStr = localStorage.getItem(STORAGE_KEY) || '{}';
+            // 使用 encodeURIComponent 配合 btoa 处理中文字符
+            const base64Code = btoa(encodeURIComponent(dataStr));
+            const textArea = document.getElementById('syncCodeArea');
+            textArea.value = base64Code;
+            
+            // 自动选中并复制到剪贴板
+            textArea.select();
+            navigator.clipboard.writeText(base64Code).then(() => {
+                const toast = document.getElementById('copyToast');
+                toast.classList.remove('hidden');
+                setTimeout(() => toast.classList.add('hidden'), 3000);
+            }).catch(err => {
+                alert('复制失败，请手动长按全选复制！');
+            });
+        }
+
+        // 导入秘钥
+        function importSyncCode() {
+            const code = document.getElementById('syncCodeArea').value.trim();
+            if (!code) { alert('请先粘贴秘钥！'); return; }
+            
+            if (!confirm('🚨 警告：导入秘钥将覆盖当前设备上的所有数据，确认导入吗？')) return;
+
+            try {
+                // 解码 Base64
+                const jsonStr = decodeURIComponent(atob(code));
+                const importedData = JSON.parse(jsonStr);
+                
+                if (typeof importedData === 'object' && importedData !== null && importedData.accounts) {
+                    saveData(importedData);
+                    renderCards();
+                    closeModal('syncModal');
+                    alert('✅ 数据同步成功！界面已刷新。');
+                } else {
+                    throw new Error("数据格式不正确");
+                }
+            } catch (err) {
+                alert('❌ 秘钥无效或已损坏！请确保复制了完整的代码。');
+            }
+        }
+
         renderCards();
     </script>
+    <div id="syncModal"
+        class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-md transition-opacity">
+        <div class="glass-card w-[90%] max-w-lg rounded-3xl p-6 md:p-8 relative flex flex-col shadow-2xl">
+            <button onclick="closeModal('syncModal')"
+                class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+            <h2
+                class="text-xl font-bold mb-4 text-center text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 tracking-widest flex justify-center items-center gap-2">
+                <span>🧬 赛博秘钥同步</span>
+            </h2>
+
+            <p class="text-xs text-slate-400 mb-4 text-center">告别文件传输！复制下方秘钥即可在手机/电脑间快速同步资产状态。</p>
+
+            <textarea id="syncCodeArea" class="modal-input text-xs font-mono h-32 mb-4 resize-none break-all"
+                placeholder="在这里粘贴你的秘钥代码..."></textarea>
+
+            <div class="flex gap-3">
+                <button onclick="generateSyncCode()"
+                    class="flex-1 btn-cyber py-2 rounded-lg font-bold text-sm tracking-widest">
+                    生成我的秘钥
+                </button>
+                <button onclick="importSyncCode()"
+                    class="flex-1 btn-confirm py-2 rounded-lg font-bold text-sm tracking-widest">
+                    粘贴并导入
+                </button>
+            </div>
+            <div id="copyToast" class="hidden text-green-400 text-xs text-center mt-3 font-bold transition-opacity">✅
+                秘钥已复制到剪贴板，快去手机上粘贴吧！</div>
+        </div>
+    </div>
 </body>
 
 </html>
