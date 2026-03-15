@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="browserTitle">赛博资产看板</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #e2e8f0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .glass-card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            cursor: pointer;
+        }
+
+        .type-family {
+            background: linear-gradient(135deg, rgba(234, 179, 8, 0.15), rgba(217, 119, 6, 0.3));
+            border: 1px solid rgba(250, 204, 21, 0.4);
+        }
+
+        .type-family:hover {
+            box-shadow: 0 0 25px rgba(250, 204, 21, 0.4);
+        }
+
+        .brand-glow {
+            transition: all 0.3s ease;
+        }
+
+        .glass-card-hover:hover .brand-glow {
+            color: var(--brand-color);
+            text-shadow: 0 0 15px var(--brand-color);
+            transform: scale(1.05);
+        }
+
+        .btn-cyber {
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            color: #38bdf8;
+            transition: all 0.2s;
+        }
+
+        .btn-cyber:hover {
+            background: rgba(56, 189, 248, 0.2);
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+        }
+
+        .btn-highlight {
+            background: rgba(234, 179, 8, 0.15);
+            border: 1px solid rgba(250, 204, 21, 0.5);
+            color: #fde047;
+            transition: all 0.2s;
+        }
+
+        .btn-highlight:hover {
+            background: rgba(234, 179, 8, 0.3);
+            box-shadow: 0 0 15px rgba(250, 204, 21, 0.4);
+        }
+
+        .btn-confirm {
+            background: var(--brand-color, #38bdf8);
+            color: #fff;
+            opacity: 0.9;
+            transition: all 0.2s;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .btn-confirm:hover {
+            opacity: 1;
+            box-shadow: 0 0 15px var(--brand-color, #38bdf8);
+            transform: scale(1.02);
+        }
+
+        .modal-input,
+        .modal-select {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--brand-color, #38bdf8);
+            color: #fff;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.1);
+            outline: none;
+            border-radius: 8px;
+            padding: 8px 15px;
+            width: 100%;
+        }
+
+        .modal-input:focus,
+        .modal-select:focus {
+            box-shadow: 0 0 12px var(--brand-color, #38bdf8);
+        }
+
+        .modal-select option {
+            background: #1e293b;
+            color: #fff;
+        }
+
+        .title-input {
+            background: transparent;
+            border-bottom: 2px solid transparent;
+            outline: none;
+            transition: border-color 0.3s, color 0.3s;
+        }
+
+        .title-input:hover {
+            border-bottom: 2px solid rgba(56, 189, 248, 0.5);
+        }
+
+        .title-input:focus {
+            border-bottom: 2px solid #38bdf8;
+            color: #fff;
+        }
+
+        .add-card {
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-h-[120px];
+        }
+
+        .add-card:hover {
+            border-color: #38bdf8;
+            color: #38bdf8;
+            background: rgba(56, 189, 248, 0.05);
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen p-6 md:p-12 flex flex-col items-center relative">
+
+    <div class="absolute top-4 right-4 md:top-8 md:right-8 flex flex-wrap gap-3 z-10 justify-end">
+        <button onclick="openAggregateModal()"
+            class="btn-highlight px-4 py-2 rounded-lg text-sm font-bold tracking-wider">📈 小小总结</button>
+        <button onclick="exportData()" class="btn-cyber px-4 py-2 rounded-lg text-sm font-medium">💾 导出</button>
+        <button onclick="document.getElementById('fileInput').click()"
+            class="btn-cyber px-4 py-2 rounded-lg text-sm font-medium">📂 导入</button>
+        <input type="file" id="fileInput" class="hidden" accept=".json" onchange="importData(event)">
+    </div>
+
+    <div
+        class="w-full max-w-5xl glass-card rounded-3xl p-8 mb-8 mt-16 md:mt-0 flex flex-col md:flex-row items-center justify-between">
+        <div class="mb-6 md:mb-0 text-center md:text-left flex flex-col items-center md:items-start w-full md:w-auto">
+            <input type="text" id="pageTitleInput"
+                class="title-input text-2xl md:text-3xl font-bold text-slate-200 mb-2 w-full text-center md:text-left placeholder-slate-600"
+                placeholder="给你的金库起个名字..." onblur="savePageTitle()" onkeydown="if(event.key === 'Enter') this.blur()">
+            <h1 class="text-sm text-slate-400 tracking-wider mb-2">总资产净值 (CNY)</h1>
+            <div class="text-5xl md:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 transition-all duration-300"
+                id="totalAsset">0.00</div>
+        </div>
+        <div class="w-48 h-48 md:w-64 md:h-64 flex-shrink-0">
+            <canvas id="assetChart"></canvas>
+        </div>
+    </div>
+
+    <div class="w-full max-w-5xl grid grid-cols-2 md:grid-cols-5 gap-4" id="cardsContainer"></div>
+
+    <div id="aggregateModal"
+        class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-md transition-opacity">
+        <div class="glass-card w-[95%] max-w-6xl h-[80vh] rounded-3xl p-6 md:p-10 relative flex flex-col shadow-2xl">
+            <button onclick="closeModal('aggregateModal')"
+                class="absolute top-6 right-6 text-slate-400 hover:text-white text-3xl leading-none">&times;</button>
+            <h2 class="text-2xl md:text-3xl font-bold mb-2 flex justify-center items-center gap-2 tracking-widest">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-orange-400">上帝视角</span>
+                <span>👽</span>
+            </h2>
+            <p class="text-center text-sm text-slate-400 mb-6">看看钱的走势符不符合你的预期？</p>
+            <div class="w-full flex-1 relative">
+                <canvas id="aggregateLineChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div id="recordModal"
+        class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm transition-opacity">
+        <div class="glass-card w-[90%] max-w-md rounded-2xl p-6 relative flex flex-col shadow-2xl">
+            <div class="flex justify-between items-start mb-4">
+                <button onclick="deleteEntireAccount()"
+                    class="text-xs text-red-400 hover:text-red-500 border border-red-500/30 px-2 py-1 rounded bg-red-500/10 transition-colors">🗑️
+                    删除此账户</button>
+                <button onclick="closeModal('recordModal')"
+                    class="text-slate-400 hover:text-white text-xl leading-none">&times;</button>
+            </div>
+            <h2 id="modalTitle" class="text-2xl font-bold mb-4 text-center tracking-widest">银行名称</h2>
+            <div class="mb-6">
+                <p class="text-sm text-slate-400 mb-2 text-center">输入最新余额</p>
+                <div class="flex gap-3">
+                    <input type="number" id="modalInput" class="modal-input text-center text-xl font-bold"
+                        placeholder="0.00" onkeydown="if(event.key === 'Enter') confirmRecord()">
+                    <button onclick="confirmRecord()"
+                        class="btn-confirm px-6 rounded-lg font-bold tracking-widest">确认</button>
+                </div>
+            </div>
+            <div class="mb-4">
+                <p class="text-xs text-slate-400 mb-2 border-b border-slate-700 pb-1">最近一年记录</p>
+                <div id="historyList" class="max-h-32 overflow-y-auto space-y-2 pr-2 text-sm"></div>
+            </div>
+            <div class="w-full h-40 mt-2"><canvas id="lineChart"></canvas></div>
+        </div>
+    </div>
+
+    <div id="addAccountModal"
+        class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm transition-opacity">
+        <div class="glass-card w-[90%] max-w-sm rounded-2xl p-6 relative flex flex-col shadow-2xl"
+            style="--brand-color: #38bdf8;">
+            <button onclick="closeModal('addAccountModal')"
+                class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl">&times;</button>
+            <h2 class="text-xl font-bold mb-6 text-center text-white tracking-widest">添加新资产账户</h2>
+            <div class="space-y-4 mb-6">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">1. 账户名称</label>
+                    <input type="text" id="newAccName" class="modal-input text-sm" placeholder="如：招商银行、某某基金...">
+                </div>
+                <div class="flex gap-4">
+                    <div class="flex-1">
+                        <label class="block text-xs text-slate-400 mb-1">2. 专属颜色</label>
+                        <input type="color" id="newAccColor"
+                            class="w-full h-[42px] bg-transparent border border-sky-500/50 rounded-lg cursor-pointer p-1"
+                            value="#3b82f6">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs text-slate-400 mb-1">3. 资产分类</label>
+                        <select id="newAccType" class="modal-select text-sm h-[42px]">
+                            <option value="bank">储蓄银行</option>
+                            <option value="invest">证券投资</option>
+                            <option value="mobile">移动支付</option>
+                            <option value="family">老婆大人的钱</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <button onclick="saveNewAccount()"
+                class="btn-confirm py-3 rounded-lg font-bold tracking-widest w-full">创建账户</button>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'cyberAssets_V2';
+
+        let donutChartInstance = null;
+        let lineChartInstance = null;
+        let aggregateChartInstance = null;
+        let activeModalId = null;
+
+        const defaultAccounts = [
+            { id: 'acc_wechat', name: '微信零钱', color: '#07c160', type: 'mobile' },
+            { id: 'acc_alipay', name: '支付宝', color: '#1677ff', type: 'mobile' }
+        ];
+
+        function getTodayString() {
+            const d = new Date();
+            return d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0');
+        }
+
+        // 🟢 极简化的数据读取：抛弃了旧版本的兼容与映射逻辑
+        function loadData() {
+            let data = JSON.parse(localStorage.getItem(STORAGE_KEY));
+
+            // 如果是全新环境，或者缓存结构损坏，直接给一套纯净的出厂设置
+            if (!data || !data.accounts) {
+                data = { pageTitle: '赛博资产看板', accounts: defaultAccounts, history: {} };
+                data.accounts.forEach(acc => data.history[acc.id] = []);
+                return data;
+            }
+
+            if (!data.pageTitle) data.pageTitle = '赛博资产看板';
+            return data;
+        }
+
+        function saveData(data) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        }
+
+        function savePageTitle() {
+            const data = loadData();
+            const input = document.getElementById('pageTitleInput');
+            data.pageTitle = input.value.trim() || '赛博资产看板';
+            input.value = data.pageTitle;
+            saveData(data);
+            document.getElementById('browserTitle').innerText = data.pageTitle;
+        }
+
+        function formatMoney(num) {
+            return Number(num).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function getLatestAmount(historyArray) {
+            if (!historyArray || historyArray.length === 0) return 0;
+            return historyArray[historyArray.length - 1].amount;
+        }
+
+        function renderCards() {
+            const container = document.getElementById('cardsContainer');
+            const data = loadData();
+            container.innerHTML = '';
+
+            document.getElementById('pageTitleInput').value = data.pageTitle;
+            document.getElementById('browserTitle').innerText = data.pageTitle;
+
+            data.accounts.forEach(acc => {
+                const latestAmount = getLatestAmount(data.history[acc.id]);
+                const isFamily = acc.type === 'family';
+                const baseClass = isFamily ? 'text-yellow-100' : 'text-slate-200';
+                const cardClass = isFamily ? 'type-family' : '';
+
+                const card = document.createElement('div');
+                card.className = `glass-card glass-card-hover rounded-2xl p-5 flex flex-col items-center justify-center text-center ${cardClass}`;
+                card.style.setProperty('--brand-color', acc.color);
+                card.onclick = () => openRecordModal(acc.id);
+
+                card.innerHTML = `
+                    <div class="text-sm font-medium mb-2" style="color: ${acc.color}; opacity: 0.8;">${acc.name}</div>
+                    <div class="text-2xl font-bold brand-glow ${baseClass}">
+                        ${formatMoney(latestAmount)}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            const addBtn = document.createElement('div');
+            addBtn.className = `glass-card glass-card-hover add-card rounded-2xl cursor-pointer transition-all`;
+            addBtn.onclick = () => openAddAccountModal();
+            addBtn.innerHTML = `<div class="text-3xl opacity-50">+</div>`;
+            container.appendChild(addBtn);
+
+            updateDashboard(data);
+        }
+
+        function openAddAccountModal() {
+            document.getElementById('newAccName').value = '';
+            document.getElementById('newAccColor').value = '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
+            document.getElementById('newAccType').value = 'bank';
+            document.getElementById('addAccountModal').classList.remove('hidden');
+        }
+
+        function saveNewAccount() {
+            const name = document.getElementById('newAccName').value.trim();
+            const color = document.getElementById('newAccColor').value;
+            const type = document.getElementById('newAccType').value;
+            if (!name) { alert("账户名称不能为空！"); return; }
+
+            const data = loadData();
+            const newId = 'acc_' + Date.now() + Math.floor(Math.random() * 1000);
+            data.accounts.push({ id: newId, name: name, color: color, type: type });
+            data.history[newId] = [];
+
+            saveData(data);
+            closeModal('addAccountModal');
+            renderCards();
+        }
+
+        function deleteEntireAccount() {
+            if (!activeModalId) return;
+            if (!confirm('🚨 危险操作：确定要删除整个账户及其所有历史记录吗？此操作不可恢复！')) return;
+
+            const data = loadData();
+            data.accounts = data.accounts.filter(a => a.id !== activeModalId);
+            delete data.history[activeModalId];
+
+            saveData(data);
+            closeModal('recordModal');
+            renderCards();
+        }
+
+        function openRecordModal(id) {
+            activeModalId = id;
+            const data = loadData();
+            const acc = data.accounts.find(a => a.id === id);
+            let history = data.history[id] || [];
+
+            let displayHistory = history.map((item, idx) => ({ ...item, absoluteIndex: idx }));
+            const oneYearAgo = new Date();
+            oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+            displayHistory = displayHistory.filter(item => new Date(item.date) >= oneYearAgo);
+
+            const modal = document.getElementById('recordModal');
+            modal.style.setProperty('--brand-color', acc.color);
+            document.getElementById('modalTitle').innerText = acc.name;
+            document.getElementById('modalTitle').style.color = acc.color;
+
+            const input = document.getElementById('modalInput');
+            input.value = getLatestAmount(history) || '';
+
+            renderHistoryList(displayHistory, acc.color, id);
+            renderLineChart(displayHistory, acc.color);
+
+            modal.classList.remove('hidden');
+            setTimeout(() => { input.focus(); input.select(); }, 100);
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+            if (modalId === 'recordModal') activeModalId = null;
+        }
+
+        function confirmRecord() {
+            if (!activeModalId) return;
+            const inputVal = parseFloat(document.getElementById('modalInput').value);
+            if (isNaN(inputVal) || inputVal < 0) return;
+
+            const data = loadData();
+            const history = data.history[activeModalId];
+            const todayStr = getTodayString();
+
+            if (history.length > 0 && history[history.length - 1].date === todayStr) {
+                history[history.length - 1].amount = inputVal;
+            } else {
+                history.push({ date: todayStr, amount: inputVal });
+            }
+
+            saveData(data);
+            openRecordModal(activeModalId);
+            renderCards();
+        }
+
+        function deleteRecord(accountId, absoluteIndex) {
+            event.stopPropagation();
+            if (!confirm('确定要删除这条记录吗？')) return;
+
+            const data = loadData();
+            if (data.history[accountId] && data.history[accountId].length > absoluteIndex) {
+                data.history[accountId].splice(absoluteIndex, 1);
+                saveData(data);
+                openRecordModal(accountId);
+                renderCards();
+            }
+        }
+
+        function renderHistoryList(displayHistory, color, accountId) {
+            const listDiv = document.getElementById('historyList');
+            listDiv.innerHTML = '';
+            if (displayHistory.length === 0) {
+                listDiv.innerHTML = '<div class="text-center text-slate-500 py-2">暂无记录</div>';
+                return;
+            }
+            const reversedHistory = [...displayHistory].reverse();
+            reversedHistory.forEach((item, index) => {
+                const isLatest = index === 0;
+                const row = document.createElement('div');
+                row.className = `group flex justify-between items-center p-2 rounded bg-opacity-20 ${isLatest ? 'bg-slate-700' : 'hover:bg-slate-800'}`;
+
+                row.innerHTML = `
+                    <span class="${isLatest ? 'text-slate-300' : 'text-slate-500'} font-mono">${item.date}</span>
+                    <div class="flex items-center gap-3">
+                        <span class="font-bold" style="color: ${isLatest ? color : '#94a3b8'}">${formatMoney(item.amount)}</span>
+                        <button onclick="deleteRecord('${accountId}', ${item.absoluteIndex})" class="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-500 transition-opacity p-1 rounded">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                    </div>
+                `;
+                listDiv.appendChild(row);
+            });
+        }
+
+        function renderLineChart(displayHistory, color) {
+            const ctx = document.getElementById('lineChart').getContext('2d');
+            const labels = displayHistory.map(item => item.date.substring(5));
+            const dataPoints = displayHistory.map(item => item.amount);
+            if (lineChartInstance) lineChartInstance.destroy();
+            const gradient = ctx.createLinearGradient(0, 0, 0, 160);
+            gradient.addColorStop(0, color + '80'); gradient.addColorStop(1, color + '00');
+            lineChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: { labels: labels, datasets: [{ data: dataPoints, borderColor: color, backgroundColor: gradient, borderWidth: 2, pointBackgroundColor: '#0f172a', pointBorderColor: color, pointBorderWidth: 2, pointRadius: 4, pointHoverRadius: 6, fill: true, tension: 0.3 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } }, scales: { x: { grid: { display: false, color: '#334155' }, ticks: { color: '#64748b', maxTicksLimit: 5 } }, y: { border: { display: false }, grid: { color: '#1e293b' }, ticks: { color: '#64748b', maxTicksLimit: 4 } } }, interaction: { mode: 'nearest', axis: 'x', intersect: false } }
+            });
+        }
+
+        function openAggregateModal() {
+            const data = loadData();
+            if (data.accounts.length === 0) {
+                alert("当前没有账户数据哦，先去添加记账吧！");
+                return;
+            }
+
+            let allDatesSet = new Set();
+            data.accounts.forEach(acc => {
+                const history = data.history[acc.id] || [];
+                history.forEach(item => allDatesSet.add(item.date));
+            });
+            let sortedDates = Array.from(allDatesSet).sort();
+
+            if (sortedDates.length === 0) {
+                alert("还没有任何历史记录，先去记一笔吧！");
+                return;
+            }
+
+            let datasets = [];
+            let totalAssetData = new Array(sortedDates.length).fill(0);
+
+            data.accounts.forEach(acc => {
+                const history = data.history[acc.id] || [];
+                let accountAlignedData = [];
+                let lastKnownValue = 0;
+
+                sortedDates.forEach((date, index) => {
+                    const recordThisDay = history.find(item => item.date === date);
+                    if (recordThisDay) lastKnownValue = recordThisDay.amount;
+                    accountAlignedData.push(lastKnownValue);
+                    totalAssetData[index] += lastKnownValue;
+                });
+
+                datasets.push({
+                    label: acc.name,
+                    data: accountAlignedData,
+                    borderColor: acc.color,
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    tension: 0.3,
+                    hidden: false
+                });
+            });
+
+            datasets.unshift({
+                label: '🌟 总资产',
+                data: totalAssetData,
+                borderColor: '#38bdf8',
+                backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                borderWidth: 4,
+                fill: true,
+                pointRadius: 0,
+                pointHoverRadius: 6,
+                tension: 0.3,
+                hidden: false
+            });
+
+            const ctx = document.getElementById('aggregateLineChart').getContext('2d');
+            if (aggregateChartInstance) aggregateChartInstance.destroy();
+
+            aggregateChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: { labels: sortedDates, datasets: datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#e2e8f0', padding: 20, font: { size: 13, family: 'Segoe UI' }, usePointStyle: true } },
+                        tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', titleColor: '#38bdf8', bodyColor: '#e2e8f0', borderColor: 'rgba(56, 189, 248, 0.3)', borderWidth: 1, padding: 12, itemSort: (a, b) => b.raw - a.raw }
+                    },
+                    scales: {
+                        x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', maxTicksLimit: 12 } },
+                        y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+
+            document.getElementById('aggregateModal').classList.remove('hidden');
+        }
+
+        function updateDashboard(data) {
+            let total = 0;
+            let categoryTotals = { bank: 0, invest: 0, mobile: 0, family: 0 };
+
+            data.accounts.forEach(acc => {
+                const val = getLatestAmount(data.history[acc.id]);
+                total += val;
+                if (categoryTotals[acc.type] !== undefined) categoryTotals[acc.type] += val;
+            });
+
+            document.getElementById('totalAsset').innerText = formatMoney(total);
+            const chartData = [categoryTotals.bank, categoryTotals.invest, categoryTotals.mobile, categoryTotals.family];
+
+            if (donutChartInstance) {
+                donutChartInstance.data.datasets[0].data = chartData;
+                donutChartInstance.update();
+            } else {
+                const ctx = document.getElementById('assetChart').getContext('2d');
+                donutChartInstance = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: { labels: ['储蓄银行', '证券投资', '移动支付', '老婆大人的钱'], datasets: [{ data: chartData, backgroundColor: ['#3b82f6', '#ef4444', '#10b981', '#fbbf24'], borderWidth: 0, hoverOffset: 4 }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#cbd5e1' } } }, cutout: '75%' }
+                });
+            }
+        }
+
+        function exportData() {
+            // 🛑 1. 新增的“逻辑缓冲”：弹出确认框
+            const isConfirmed = confirm("💾 准备导出当前资产档案？\n\n导出的文件可以妥善保存，数据被清除或者换电脑，随时可以通过【📂导入】恢复数据");
+
+            // 2. 如果用户点击了“取消”，就直接退出函数，什么都不做
+            if (!isConfirmed) {
+                return;
+            }
+
+            // 3. 如果点击了“确定”，则继续执行你原来的下载逻辑
+            const dataStr = localStorage.getItem(STORAGE_KEY) || '{}';
+            const dataObj = JSON.parse(dataStr);
+            const rawTitle = dataObj.pageTitle || '赛博资产看板';
+            const safeTitle = rawTitle.replace(/[\/\\:\*\?"<>\|]/g, '_');
+            const dateSuffix = getTodayString().replace(/\//g, '');
+
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${safeTitle}_${dateSuffix}.json`;
+
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (typeof importedData === 'object' && importedData !== null) {
+                        saveData(importedData);
+                        renderCards();
+                        alert('✅ 读档成功！UI 已刷新。');
+                    }
+                } catch (err) { alert('❌ 存档文件似乎损坏或格式不正确！'); }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        renderCards();
+    </script>
+</body>
+
+</html>
