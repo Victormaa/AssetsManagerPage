@@ -715,12 +715,78 @@
             event.target.value = '';
         }
 
-        // 🧬 升级版：生成高压缩率秘钥
+        // 🛠️ 1. 数据榨汁机：把臃肿的 Object 拍扁成极简 Array
+        function packData(data) {
+            const typeMap = { 'bank': 0, 'invest': 1, 'mobile': 2, 'family': 3 };
+            const packedAccounts = [];
+            const packedHistory = [];
+
+            data.accounts.forEach(acc => {
+                // 压缩账户属性：[去掉前缀的id, 名字, 颜色, 分类代号]
+                packedAccounts.push([
+                    acc.id.replace('acc_', ''), 
+                    acc.name, 
+                    acc.color, 
+                    typeMap[acc.type] || 0
+                ]);
+                
+                const hist = data.history[acc.id] || [];
+                // 压缩历史记录：["2026/03/15" -> "260315", 金额]
+                packedHistory.push(hist.map(h => [
+                    h.date.substring(2).replace(/\//g, ''),
+                    h.amount
+                ]));
+            });
+
+            // 最终的极简包：[标题, 账户数组, 历史数组]
+            return [data.pageTitle, packedAccounts, packedHistory];
+        }
+
+        // 🛠️ 2. 数据膨胀机：把极简 Array 还原成标准的 Object
+        function unpackData(packed) {
+            const types = ['bank', 'invest', 'mobile', 'family'];
+            const data = {
+                pageTitle: packed[0] || '赛博资产看板',
+                accounts: [],
+                history: {}
+            };
+
+            const packedAccounts = packed[1] || [];
+            const packedHistory = packed[2] || [];
+
+            packedAccounts.forEach((pAcc, index) => {
+                const fullId = 'acc_' + pAcc[0];
+                // 还原账户
+                data.accounts.push({
+                    id: fullId,
+                    name: pAcc[1],
+                    color: pAcc[2],
+                    type: types[pAcc[3]] || 'bank'
+                });
+
+                // 还原历史记录："260315" -> "2026/03/15"
+                const pHist = packedHistory[index] || [];
+                data.history[fullId] = pHist.map(ph => {
+                    const d = ph[0];
+                    return { 
+                        date: `20${d.substring(0,2)}/${d.substring(2,4)}/${d.substring(4,6)}`, 
+                        amount: ph[1] 
+                    };
+                });
+            });
+
+            return data;
+        }
+
+        // 🧬 终极版：生成“穷人版 Protobuf”高压缩率秘钥
         function generateSyncCode() {
             const dataStr = localStorage.getItem(STORAGE_KEY) || '{}';
+            const rawData = JSON.parse(dataStr);
             
-            // 核心魔法：使用 LZString 压缩并转为安全的 Base64
-            const compressedCode = LZString.compressToBase64(dataStr);
+            // 魔法1：先拍扁降维
+            const packedArray = packData(rawData);
+            // 魔法2：再用 LZString 极限压缩
+            const compressedCode = LZString.compressToBase64(JSON.stringify(packedArray));
             
             const textArea = document.getElementById('syncCodeArea');
             textArea.value = compressedCode;
@@ -734,7 +800,8 @@
                 alert('复制失败，请手动长按全选复制！');
             });
         }
-        // 🧬 极致瘦身版：纯 LZ-String 解压导入
+
+        // 🧬 终极版：解包并导入
         function importSyncCode() {
             const code = document.getElementById('syncCodeArea').value.trim();
             if (!code) { alert('请先粘贴秘钥！'); return; }
@@ -742,24 +809,26 @@
             if (!confirm('🚨 警告：导入秘钥将覆盖当前设备上的所有数据，确认导入吗？')) return;
 
             try {
-                // 直接使用 LZString 解压，不留任何后路
+                // 1. 解压出字符串
                 const jsonStr = LZString.decompressFromBase64(code);
+                if (!jsonStr) throw new Error("解压失败");
                 
-                // 如果解不开（比如贴了旧版秘钥），直接抛出错误进入 catch
-                if (!jsonStr) throw new Error("解压失败，非兼容的秘钥格式");
-
-                const importedData = JSON.parse(jsonStr);
+                // 2. 解析成拍扁的 Array
+                const packedArray = JSON.parse(jsonStr);
                 
-                if (typeof importedData === 'object' && importedData !== null && importedData.accounts) {
+                // 3. 还原回标准 Object
+                const importedData = unpackData(packedArray);
+                
+                if (importedData && importedData.accounts) {
                     saveData(importedData);
                     renderCards();
                     closeModal('syncModal');
-                    alert('✅ 数据同步成功！界面已刷新。');
+                    alert('✅ 降维解包成功！界面已刷新。');
                 } else {
-                    throw new Error("数据格式不正确");
+                    throw new Error("数据结构异常");
                 }
             } catch (err) {
-                alert('❌ 秘钥无效或已损坏！请确保复制了最新的短压缩秘钥。');
+                alert('❌ 秘钥无效！确保你使用的是最新版的“降维压缩”秘钥。');
             }
         }
 
