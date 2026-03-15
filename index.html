@@ -778,89 +778,120 @@
             return data;
         }
 
-        // 🧬 终极版：生成“穷人版 Protobuf”高压缩率秘钥
+        // 🧬 1. 一键生成并复制到剪贴板
         function generateSyncCode() {
             const dataStr = localStorage.getItem(STORAGE_KEY) || '{}';
             const rawData = JSON.parse(dataStr);
             
-            // 魔法1：先拍扁降维
             const packedArray = packData(rawData);
-            // 魔法2：再用 LZString 极限压缩
             const compressedCode = LZString.compressToBase64(JSON.stringify(packedArray));
             
             const textArea = document.getElementById('syncCodeArea');
             textArea.value = compressedCode;
             
-            textArea.select();
+            // 写入剪贴板
             navigator.clipboard.writeText(compressedCode).then(() => {
                 const toast = document.getElementById('copyToast');
+                toast.innerText = '✅ 秘钥已成功复制到剪贴板！快去另一台设备导入吧。';
                 toast.classList.remove('hidden');
                 setTimeout(() => toast.classList.add('hidden'), 3000);
             }).catch(err => {
-                alert('复制失败，请手动长按全选复制！');
+                alert('系统拦截了复制请求，请在上方框内手动长按复制！');
             });
         }
 
-        // 🧬 终极版：解包并导入
-        function importSyncCode() {
-            const code = document.getElementById('syncCodeArea').value.trim();
-            if (!code) { alert('请先粘贴秘钥！'); return; }
-            
-            if (!confirm('🚨 警告：导入秘钥将覆盖当前设备上的所有数据，确认导入吗？')) return;
-
+        // 🧬 2. 核心黑魔法：直接读取剪贴板并解包
+        async function importFromClipboard() {
             try {
-                // 1. 解压出字符串
+                // 检查浏览器是否支持直接读取剪贴板
+                if (!navigator.clipboard || !navigator.clipboard.readText) {
+                    throw new Error("NOT_SUPPORTED");
+                }
+                
+                // 呼叫系统剪贴板 (手机端首次会弹出“允许粘贴”的系统提示)
+                const code = await navigator.clipboard.readText();
+                
+                if (!code || code.trim() === '') {
+                    alert('🤔 你的剪贴板是空的哦，请先复制秘钥！');
+                    return;
+                }
+
+                // 为了视觉确认，把读到的代码填进框里
+                document.getElementById('syncCodeArea').value = code.trim();
+
+                if (!confirm('🚨 警告：即将从剪贴板导入秘钥，这将覆盖当前设备上的所有数据！确认导入吗？')) return;
+
+                // 开始解包流程
+                processImportCode(code.trim());
+
+            } catch (err) {
+                if (err.message === "NOT_SUPPORTED") {
+                    alert('📋 你的浏览器不支持自动读取剪贴板。请手动长按上方输入框粘贴，然后点击下方的【手动导入】按钮。');
+                } else {
+                    alert('❌ 读取剪贴板失败，请确保你已经授予了网页粘贴权限。');
+                }
+            }
+        }
+
+        // 🧬 3. 备用方案：手动导入框内的内容
+        function manualImport() {
+            const code = document.getElementById('syncCodeArea').value.trim();
+            if (!code) { alert('请先在输入框内粘贴秘钥！'); return; }
+            if (!confirm('🚨 警告：这会覆盖当前数据，确认导入吗？')) return;
+            processImportCode(code);
+        }
+
+        // 通用的解压与数据重构引擎
+        function processImportCode(code) {
+            try {
                 const jsonStr = LZString.decompressFromBase64(code);
                 if (!jsonStr) throw new Error("解压失败");
                 
-                // 2. 解析成拍扁的 Array
                 const packedArray = JSON.parse(jsonStr);
-                
-                // 3. 还原回标准 Object
                 const importedData = unpackData(packedArray);
                 
                 if (importedData && importedData.accounts) {
                     saveData(importedData);
                     renderCards();
                     closeModal('syncModal');
-                    alert('✅ 降维解包成功！界面已刷新。');
+                    alert('✅ 极速接力成功！资产界面已全面刷新。');
                 } else {
                     throw new Error("数据结构异常");
                 }
             } catch (err) {
-                alert('❌ 秘钥无效！确保你使用的是最新版的“降维压缩”秘钥。');
+                alert('❌ 秘钥无效！确保你复制了完整的降维压缩秘钥代码。');
             }
         }
 
         renderCards();
     </script>
-    <div id="syncModal"
-        class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-md transition-opacity">
+    <div id="syncModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-md transition-opacity">
         <div class="glass-card w-[90%] max-w-lg rounded-3xl p-6 md:p-8 relative flex flex-col shadow-2xl">
-            <button onclick="closeModal('syncModal')"
-                class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
-            <h2
-                class="text-xl font-bold mb-4 text-center text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 tracking-widest flex justify-center items-center gap-2">
+            <button onclick="closeModal('syncModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+            <h2 class="text-xl font-bold mb-4 text-center text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 tracking-widest flex justify-center items-center gap-2">
                 <span>🧬 赛博秘钥同步</span>
             </h2>
+            
+            <p class="text-xs text-slate-400 mb-4 text-center">零缝隙云同步：左边电脑点复制，右边手机点导入，瞬间满血复活。</p>
 
-            <p class="text-xs text-slate-400 mb-4 text-center">告别文件传输！复制下方秘钥即可在手机/电脑间快速同步资产状态。</p>
+            <textarea id="syncCodeArea" class="modal-input text-xs font-mono h-20 mb-4 resize-none break-all opacity-60 focus:opacity-100" placeholder="秘钥代码将在此处显示，也可在此处手动粘贴..."></textarea>
 
-            <textarea id="syncCodeArea" class="modal-input text-xs font-mono h-32 mb-4 resize-none break-all"
-                placeholder="在这里粘贴你的秘钥代码..."></textarea>
-
-            <div class="flex gap-3">
-                <button onclick="generateSyncCode()"
-                    class="flex-1 btn-cyber py-2 rounded-lg font-bold text-sm tracking-widest">
-                    生成我的秘钥
+            <div class="flex gap-3 mb-2">
+                <button onclick="generateSyncCode()" class="flex-1 btn-cyber py-4 rounded-xl font-bold text-sm tracking-widest flex flex-col items-center justify-center gap-1">
+                    <span class="text-2xl">📋</span>
+                    <span>1. 一键生成并复制</span>
                 </button>
-                <button onclick="importSyncCode()"
-                    class="flex-1 btn-confirm py-2 rounded-lg font-bold text-sm tracking-widest">
-                    粘贴并导入
+                <button onclick="importFromClipboard()" class="flex-1 btn-confirm py-4 rounded-xl font-bold text-sm tracking-widest flex flex-col items-center justify-center gap-1">
+                    <span class="text-2xl">📥</span>
+                    <span>2. 从剪贴板极速导入</span>
                 </button>
             </div>
-            <div id="copyToast" class="hidden text-green-400 text-xs text-center mt-3 font-bold transition-opacity">✅
-                秘钥已复制到剪贴板，快去手机上粘贴吧！</div>
+            
+            <div class="text-center mt-2">
+                <button onclick="manualImport()" class="text-xs text-slate-500 hover:text-slate-300 underline transition-colors">无法自动读取？在此框内粘贴后点我手动导入</button>
+            </div>
+            
+            <div id="copyToast" class="hidden text-green-400 text-xs text-center mt-3 font-bold transition-opacity">✅ 秘钥已成功复制到剪贴板！</div>
         </div>
     </div>
 </body>
