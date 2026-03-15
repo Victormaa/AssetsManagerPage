@@ -600,16 +600,40 @@
         function updateDashboard(data) {
             let total = 0;
             let categoryTotals = { bank: 0, invest: 0, mobile: 0, family: 0 };
-
+            
+            // 累加总资产和分类资产
             data.accounts.forEach(acc => {
                 const val = getLatestAmount(data.history[acc.id]);
                 total += val;
-                if (categoryTotals[acc.type] !== undefined) categoryTotals[acc.type] += val;
+                if(categoryTotals[acc.type] !== undefined) categoryTotals[acc.type] += val;
             });
+            
+            // 1. 格式化总金额
+            const formattedTotal = formatMoney(total);
+            const totalAssetEl = document.getElementById('totalAsset');
 
-            document.getElementById('totalAsset').innerText = formatMoney(total);
+            // 🌟 2. 核心魔法：先清理掉所有旧的字号控制 class
+            totalAssetEl.classList.remove('text-5xl', 'md:text-7xl', 'text-4xl', 'md:text-6xl', 'text-3xl', 'md:text-5xl', 'text-2xl', 'md:text-4xl');
+
+            // 🌟 3. 根据总资产的长度，动态赋予收缩字号
+            if (formattedTotal.length >= 14) { 
+                // 千万及以上级别 (例如 10,000,000.00，13位以上) -> 缩小两个身位
+                totalAssetEl.classList.add('text-3xl', 'md:text-5xl');
+            } else if (formattedTotal.length >= 11) { 
+                // 百万级别 (例如 1,000,000.00，10位以上) -> 缩小一个身位
+                totalAssetEl.classList.add('text-4xl', 'md:text-6xl');
+            } else { 
+                // 十万及以下级别 -> 保持最霸气的初始大字号
+                totalAssetEl.classList.add('text-5xl', 'md:text-7xl');
+            }
+
+            // 🌟 4. 强制不换行，防止极端情况断层
+            totalAssetEl.classList.add('whitespace-nowrap');
+            totalAssetEl.innerText = formattedTotal;
+
+            // --- 以下是原本的环形图渲染逻辑 ---
             const chartData = [categoryTotals.bank, categoryTotals.invest, categoryTotals.mobile, categoryTotals.family];
-
+            
             if (donutChartInstance) {
                 donutChartInstance.data.datasets[0].data = chartData;
                 donutChartInstance.update();
@@ -617,7 +641,10 @@
                 const ctx = document.getElementById('assetChart').getContext('2d');
                 donutChartInstance = new Chart(ctx, {
                     type: 'doughnut',
-                    data: { labels: ['储蓄银行', '证券投资', '移动支付', '老婆大人的钱'], datasets: [{ data: chartData, backgroundColor: ['#3b82f6', '#ef4444', '#10b981', '#fbbf24'], borderWidth: 0, hoverOffset: 4 }] },
+                    data: { 
+                        labels: ['储蓄银行', '证券投资', '移动支付', '老婆大人的钱'], 
+                        datasets: [{ data: chartData, backgroundColor: ['#3b82f6', '#ef4444', '#10b981', '#fbbf24'], borderWidth: 0, hoverOffset: 4 }] 
+                    },
                     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#cbd5e1' } } }, cutout: '75%' }
                 });
             }
