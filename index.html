@@ -177,7 +177,12 @@
             <input type="text" id="pageTitleInput"
                 class="title-input text-2xl md:text-3xl font-bold text-slate-200 mb-2 w-full text-center md:text-left placeholder-slate-600"
                 placeholder="给你的金库起个名字..." onblur="savePageTitle()" onkeydown="if(event.key === 'Enter') this.blur()">
-            <h1 class="text-sm text-slate-400 tracking-wider mb-2">总资产净值 (CNY)</h1>
+            <div class="flex items-center justify-center md:justify-start gap-2 mb-2">
+                <h1 class="text-sm text-slate-400 tracking-wider">总资产净值 (CNY)</h1>
+                <button id="privacyBtn" onclick="togglePrivacy()" class="text-slate-400 hover:text-white transition-transform hover:scale-110 focus:outline-none text-lg">
+                    👁️
+                </button>
+            </div>
             <div class="text-5xl md:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 transition-all duration-300"
                 id="totalAsset">0.00</div>
         </div>
@@ -270,6 +275,16 @@
     <script>
         const STORAGE_KEY = 'cyberAssets_V2';
 
+        // 记录当前的隐私模式，刷新页面也不会失效
+        let isPrivacyMode = localStorage.getItem('cyberPrivacy') === 'true';
+
+        // 切换隐私模式的函数
+        function togglePrivacy() {
+            isPrivacyMode = !isPrivacyMode;
+            localStorage.setItem('cyberPrivacy', isPrivacyMode);
+            renderCards(); // 触发 UI 刷新
+        }
+
         let donutChartInstance = null;
         let lineChartInstance = null;
         let aggregateChartInstance = null;
@@ -358,13 +373,16 @@
                 card.innerHTML = `
                     <div class="text-xs md:text-sm font-medium mb-1 md:mb-2 whitespace-nowrap truncate w-full" style="color: ${acc.color}; opacity: 0.8;">${acc.name}</div>
                     <div class="${dynamicTextSize} font-bold brand-glow whitespace-nowrap ${baseClass}">
-                        ${formattedMoney}
+                        ${isPrivacyMode ? '******' : formattedMoney}
                     </div>
                 `;
                 container.appendChild(card);
             });
 
             const addBtn = document.createElement('div');
+
+            // 顺手把小眼睛的状态更新一下
+            document.getElementById('privacyBtn').innerText = isPrivacyMode ? '🙈' : '👁️';
             // “+”号卡片也同步优化一下手机端的间距
             addBtn.className = `glass-card glass-card-hover add-card rounded-2xl cursor-pointer transition-all p-4 md:p-5`;
             addBtn.onclick = () => openAddAccountModal();
@@ -629,7 +647,7 @@
 
             // 🌟 4. 强制不换行，防止极端情况断层
             totalAssetEl.classList.add('whitespace-nowrap');
-            totalAssetEl.innerText = formattedTotal;
+            totalAssetEl.innerText = isPrivacyMode ? '******' : formattedTotal;
 
             // --- 以下是原本的环形图渲染逻辑 ---
             const chartData = [categoryTotals.bank, categoryTotals.invest, categoryTotals.mobile, categoryTotals.family];
