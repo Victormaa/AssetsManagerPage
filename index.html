@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title id="browserTitle">赛博资产看板</title>
+    <title id="browserTitle">马笛资产看板v1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -288,12 +288,12 @@
 
             // 如果是全新环境，或者缓存结构损坏，直接给一套纯净的出厂设置
             if (!data || !data.accounts) {
-                data = { pageTitle: '赛博资产看板', accounts: defaultAccounts, history: {} };
+                data = { pageTitle: '马笛资产看板v1', accounts: defaultAccounts, history: {} };
                 data.accounts.forEach(acc => data.history[acc.id] = []);
                 return data;
             }
 
-            if (!data.pageTitle) data.pageTitle = '赛博资产看板';
+            if (!data.pageTitle) data.pageTitle = '马笛资产看板v1';
             return data;
         }
 
@@ -304,7 +304,7 @@
         function savePageTitle() {
             const data = loadData();
             const input = document.getElementById('pageTitleInput');
-            data.pageTitle = input.value.trim() || '赛博资产看板';
+            data.pageTitle = input.value.trim() || '马笛资产看板v1';
             input.value = data.pageTitle;
             saveData(data);
             document.getElementById('browserTitle').innerText = data.pageTitle;
@@ -617,7 +617,7 @@
             // 3. 如果点击了“确定”，则继续执行你原来的下载逻辑
             const dataStr = localStorage.getItem(STORAGE_KEY) || '{}';
             const dataObj = JSON.parse(dataStr);
-            const rawTitle = dataObj.pageTitle || '赛博资产看板';
+            const rawTitle = dataObj.pageTitle || '马笛资产看板v1';
             const safeTitle = rawTitle.replace(/[\/\\:\*\?"<>\|]/g, '_');
             const dateSuffix = getTodayString().replace(/\//g, '');
 
